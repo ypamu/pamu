@@ -1,21 +1,42 @@
 import numpy as np
-from flask import Flask, request, jsonify, render_template
+import pandas as pd
+from flask import Flask, request, render_template
 import pickle
 
-# Create flask app
-flask_app = Flask(__name__)
-model = pickle.load(open("linear_regression_model.pkl", "rb"))
+app = Flask(__name__)
 
-@flask_app.route("/")
+# Memuat model DAN transformer yang baru saja kamu simpan
+model = pickle.load(open("linear_regression_model.pkl", "rb"))
+transformer = pickle.load(open("transformer.pkl", "rb"))
+
+@app.route("/")
 def Home():
     return render_template("index.html")
 
-@flask_app.route("/predict", methods = ["POST"])
+@app.route("/predict", methods=["POST"])
 def predict():
-    float_features = [float(x) for x in request.form.values()]
-    features = [np.array(float_features)]
-    prediction = model.predict(features)
-    return render_template("index.html", prediction_text = "The flower species is {}".format(prediction))
+    # 1. Ambil data dari form
+    data = {
+        'Age': [float(request.form['Age'])],
+        'Gender': [request.form['Gender']],
+        'Blood Type': [request.form['Blood Type']],
+        'Medical Condition': [request.form['Medical Condition']]
+    }
+    
+    # 2. Ubah ke DataFrame agar bisa diproses transformer
+    input_df = pd.DataFrame(data)
+    
+    # 3. Transformasi data kategori menjadi angka (One-Hot Encoding)
+    transformed_data = transformer.transform(input_df)
+    
+    # 4. Prediksi
+    prediction = model.predict(transformed_data)
+    output = round(prediction[0], 2)
+
+    return render_template(
+        "index.html", 
+        prediction_text="Estimasi Tagihan Medis: ${}".format(output)
+    )
 
 if __name__ == "__main__":
-    flask_app.run(debug=True)
+    app.run(debug=True)
